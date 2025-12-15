@@ -1,6 +1,6 @@
-const nodemailer = require('nodemailer');
+import nodemailer from 'nodemailer';
 
-const sendEmail = async (to, subject, htmlContent) => {
+export const sendEmail = async (to, subject, htmlContent) => {
   try {
     // Configure transporter (Update .env with your credentials)
     const transporter = nodemailer.createTransport({
@@ -26,5 +26,3 @@ const sendEmail = async (to, subject, htmlContent) => {
     return false;
   }
 };
-
-module.exports = { sendEmail };

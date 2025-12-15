@@ -1,7 +1,7 @@
 
 # Pick Your Pickle - Full Stack E-commerce App
 
-A premium e-commerce platform for authentic Indian pickles, snacks, and groceries. Built with **React (Vite) + TypeScript** for the frontend and **Python (Flask)** for the backend, using **MongoDB Atlas** for the database.
+A premium e-commerce platform for authentic Indian pickles, snacks, and groceries. Built with **React (Vite) + TypeScript** for the frontend and **Node.js (Express)** for the backend, using **MongoDB Atlas** for the database.
 
 ---
 
@@ -18,23 +18,27 @@ Follow these steps to host this application on a fresh Contabo VPS.
 ---
 
 ### Step 1: Connect to your Server
-Open your terminal (Command Prompt/PowerShell on Windows, Terminal on Mac) and SSH into your server:
+Open your terminal and SSH into your server:
 ```bash
 ssh root@YOUR_VPS_IP_ADDRESS
-# Enter your password when prompted
 ```
 
 ### Step 2: Update & Install Dependencies
-Update the system and install Python, Nginx, and Git.
+Update the system and install Node.js, Nginx, and Git.
 ```bash
 apt update && apt upgrade -y
-apt install python3-pip python3-venv nginx git curl -y
+apt install nginx git curl -y
 ```
 
 **Install Node.js (Version 18+):**
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 apt install -y nodejs
+```
+
+**Install PM2 (Process Manager):**
+```bash
+npm install -g pm2
 ```
 
 ### Step 3: Clone the Project
@@ -44,92 +48,48 @@ cd /var/www
 git clone <YOUR_GITHUB_REPO_URL> pick-your-pickle
 cd pick-your-pickle
 ```
-*(If you haven't pushed code to GitHub yet, you can upload files using FileZilla via SFTP).*
 
-### Step 4: Backend Setup (Flask)
-
-1.  **Create Virtual Environment:**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-2.  **Install Requirements:**
-    ```bash
-    pip install -r requirements.txt
-    pip install gunicorn
-    ```
-
-3.  **Create Environment Variables:**
-    Create a `.env` file to store your secrets.
-    ```bash
-    nano .env
-    ```
-    Paste the following inside (Right-click to paste):
-    ```env
-    MONGO_URI="your_mongodb_atlas_connection_string_here"
-    API_KEY="your_google_gemini_api_key_here"
-    FLASK_ENV=production
-    SECRET_KEY=super_secret_key_change_this
-    ```
-    *Press `Ctrl+X`, then `Y`, then `Enter` to save.*
-
-4.  **Test Backend:**
-    Run this briefly to check for errors:
-    ```bash
-    gunicorn --bind 0.0.0.0:5000 app:app
-    ```
-    *If it starts without errors, press `Ctrl+C` to stop it.*
-
-### Step 5: Configure Backend as a Service
-We need the backend to run in the background automatically.
-
-1.  **Create Systemd Service:**
-    ```bash
-    nano /etc/systemd/system/pickle_backend.service
-    ```
-
-2.  **Paste Configuration:**
-    ```ini
-    [Unit]
-    Description=Gunicorn instance to serve Pick Your Pickle
-    After=network.target
-
-    [Service]
-    User=root
-    Group=www-data
-    WorkingDirectory=/var/www/pick-your-pickle
-    Environment="PATH=/var/www/pick-your-pickle/venv/bin"
-    ExecStart=/var/www/pick-your-pickle/venv/bin/gunicorn --workers 3 --bind unix:app.sock -m 007 app:app
-
-    [Install]
-    WantedBy=multi-user.target
-    ```
-    *Press `Ctrl+X`, then `Y`, then `Enter` to save.*
-
-3.  **Start the Service:**
-    ```bash
-    systemctl start pickle_backend
-    systemctl enable pickle_backend
-    ```
-
-### Step 6: Frontend Setup (React)
+### Step 4: Backend Setup
 
 1.  **Install Dependencies:**
     ```bash
     npm install
     ```
 
-2.  **Build the Project:**
-    This compiles the React code into static HTML/CSS/JS files.
+2.  **Create Environment Variables:**
+    Create a `.env` file.
+    ```bash
+    nano .env
+    ```
+    Paste the following inside:
+    ```env
+    MONGO_URI="your_mongodb_atlas_connection_string_here"
+    API_KEY="your_google_gemini_api_key_here"
+    EMAIL_USER="your_email@gmail.com"
+    EMAIL_PASS="your_app_password"
+    PORT=5000
+    ```
+    *Press `Ctrl+X`, then `Y`, then `Enter` to save.*
+
+3.  **Start Backend with PM2:**
+    ```bash
+    pm2 start server/index.js --name "pickle-backend"
+    pm2 save
+    pm2 startup
+    ```
+
+### Step 5: Frontend Build
+
+1.  **Build the Project:**
+    This compiles the React code into static files.
     ```bash
     npm run build
     ```
-    *This will create a `dist` folder.*
+    *This creates a `dist` folder.*
 
-### Step 7: Configure Nginx (Web Server)
+### Step 6: Configure Nginx
 
-Nginx will serve the React frontend and pass API requests to the Flask backend.
+Nginx will serve the React frontend and pass API requests to the Node backend.
 
 1.  **Create Config File:**
     ```bash
@@ -151,10 +111,14 @@ Nginx will serve the React frontend and pass API requests to the Flask backend.
             try_files $uri $uri/ /index.html;
         }
 
-        # Proxy API requests to Flask Backend
+        # Proxy API requests to Node Backend
         location /api {
-            include proxy_params;
-            proxy_pass http://unix:/var/www/pick-your-pickle/app.sock;
+            proxy_pass http://localhost:5000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
         }
     }
     ```
@@ -164,35 +128,22 @@ Nginx will serve the React frontend and pass API requests to the Flask backend.
     ```bash
     ln -s /etc/nginx/sites-available/pickles /etc/nginx/sites-enabled/
     rm /etc/nginx/sites-enabled/default
-    ```
-
-4.  **Restart Nginx:**
-    ```bash
     nginx -t
     systemctl restart nginx
     ```
 
-### Step 8: Final Firewall Setup
-Allow traffic to your web server.
+### Step 7: Final Firewall Setup
 ```bash
 ufw allow 'Nginx Full'
 ufw allow ssh
 ufw enable
 ```
 
+### 🎉 You are done!
+Visit `http://YOUR_VPS_IP` in your browser.
+
 ---
 
-### 🎉 You are done!
-Visit `http://YOUR_VPS_IP` in your browser. Your website should be live.
-
-### (Optional) Add SSL / HTTPS
-If you have a domain connected:
-```bash
-apt install certbot python3-certbot-nginx
-certbot --nginx -d yourdomain.com
-```
-
 ### 🛠 Troubleshooting
-*   **Backend Logs:** `journalctl -u pickle_backend -f`
+*   **Backend Logs:** `pm2 logs pickle-backend`
 *   **Nginx Logs:** `tail -f /var/log/nginx/error.log`
-*   **Database Error:** Ensure you whitelisted `0.0.0.0/0` (Allow from Anywhere) in MongoDB Atlas Network Access settings.

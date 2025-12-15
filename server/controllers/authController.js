@@ -1,13 +1,13 @@
-const OTP = require('../models/Otp');
-const User = require('../models/User'); // Assuming User model exists
-const { sendEmail } = require('../utils/email');
-const bcrypt = require('bcrypt');
+import OTP from '../models/Otp.js';
+import User from '../models/User.js';
+import { sendEmail } from '../utils/email.js';
+import bcrypt from 'bcrypt';
 
 // Generate 6-digit numeric OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 // 1. Send Email OTP
-exports.sendEmailOTP = async (req, res) => {
+export const sendEmailOTP = async (req, res) => {
   try {
     const { email, purpose } = req.body; // purpose: 'signup' or 'forgot-password'
     
@@ -24,7 +24,6 @@ exports.sendEmailOTP = async (req, res) => {
     }
 
     // Rate Limiting: Check if OTP was sent recently (e.g., last 1 minute)
-    // For simplicity, we just generate a new one and overwrite previous valid OTPs for this email
     
     const otp = generateOTP();
     
@@ -69,7 +68,7 @@ exports.sendEmailOTP = async (req, res) => {
 };
 
 // 2. Verify Email OTP
-exports.verifyEmailOTP = async (req, res) => {
+export const verifyEmailOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
     if (!email || !otp) return res.status(400).json({ message: "Email and OTP required" });
@@ -105,7 +104,7 @@ exports.verifyEmailOTP = async (req, res) => {
 };
 
 // 3. Reset Password After OTP
-exports.resetPasswordAfterOTP = async (req, res) => {
+export const resetPasswordAfterOTP = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     

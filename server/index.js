@@ -1,9 +1,11 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const authRoutes = require('./routes/authRoutes');
-const User = require('./models/User');
+import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import authRoutes from './routes/authRoutes.js';
+import User from './models/User.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -64,6 +66,7 @@ app.post('/api/login', async (req, res) => {
 // Flexible schemas to handle the dynamic nature of the prototype
 const Schema = mongoose.Schema;
 
+// Use global mongoose.models to prevent overwriting during hot reloads in some envs
 const Product = mongoose.models.Product || mongoose.model('Product', new Schema({}, { strict: false }));
 const Category = mongoose.models.Category || mongoose.model('Category', new Schema({}, { strict: false }));
 const Review = mongoose.models.Review || mongoose.model('Review', new Schema({}, { strict: false }));
