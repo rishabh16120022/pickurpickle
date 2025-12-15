@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { Mail, Lock, ArrowRight, Flower, Sparkles, Key, ChevronLeft, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Flower, Sparkles, Key, ChevronLeft, CheckCircle, AlertCircle, Loader, User } from 'lucide-react';
 
 const Auth = () => {
   // View State: 'login' | 'signup' | 'forgot-email' | 'forgot-otp' | 'forgot-reset'
   const [view, setView] = useState('login');
   
   // Form Data
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -17,7 +18,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{text: string, type: 'success' | 'error'} | null>(null);
   
-  const { login } = useStore();
+  const { login, signup } = useStore();
   const navigate = useNavigate();
 
   const showMessage = (text: string, type: 'success' | 'error') => {
@@ -99,13 +100,27 @@ const Auth = () => {
       setLoading(false);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would also hit an API.
-    // Using context mock login for now.
     if (email && password) {
-        login(email, isAdmin ? 'admin' : 'customer');
-        navigate(isAdmin ? '/admin' : '/');
+        setLoading(true);
+        const success = await login(email, password);
+        setLoading(false);
+        if (success) {
+            navigate('/');
+        }
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name && email && password) {
+        setLoading(true);
+        const success = await signup(name, email, password, isAdmin ? 'admin' : 'customer');
+        setLoading(false);
+        if (success) {
+            navigate(isAdmin ? '/admin' : '/');
+        }
     }
   };
 
@@ -162,7 +177,7 @@ const Auth = () => {
 
             {/* VIEW: LOGIN & SIGNUP */}
             {(view === 'login' || view === 'signup') && (
-                <form className="space-y-8 max-w-sm mx-auto w-full" onSubmit={handleLogin}>
+                <form className="space-y-8 max-w-sm mx-auto w-full" onSubmit={view === 'login' ? handleLogin : handleSignup}>
                     <div className="text-center md:text-left mb-8">
                         <h3 className="text-2xl font-bold text-gray-800 font-serif">
                             {view === 'login' ? "Login to your account" : "Create an account"}
@@ -171,6 +186,21 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-6">
+                        {view === 'signup' && (
+                            <div className="relative group">
+                                <User className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
+                                <input 
+                                    type="text" 
+                                    required 
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                    className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
+                                    placeholder="Full Name"
+                                    id="name"
+                                />
+                                <label htmlFor="name" className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Full Name</label>
+                            </div>
+                        )}
                         <div className="relative group">
                             <Mail className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
                             <input 
@@ -200,10 +230,15 @@ const Auth = () => {
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <label className="flex items-center text-sm text-gray-600 select-none cursor-pointer hover:text-primary transition-colors">
-                            <input type="checkbox" checked={isAdmin} onChange={e => setIsAdmin(e.target.checked)} className="mr-2 accent-primary w-4 h-4" />
-                            Admin Access
-                        </label>
+                        {view === 'signup' ? (
+                            <label className="flex items-center text-sm text-gray-600 select-none cursor-pointer hover:text-primary transition-colors">
+                                <input type="checkbox" checked={isAdmin} onChange={e => setIsAdmin(e.target.checked)} className="mr-2 accent-primary w-4 h-4" />
+                                Admin Account
+                            </label>
+                        ) : (
+                            <div className="w-1"></div> // Spacer
+                        )}
+                        
                         {view === 'login' && (
                             <button type="button" onClick={() => setView('forgot-email')} className="text-sm font-medium text-primary hover:underline">
                                 Forgot Password?
@@ -211,15 +246,15 @@ const Auth = () => {
                         )}
                     </div>
 
-                    <button type="submit" className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary-dark transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                        {view === 'login' ? 'Login Securely' : 'Create Account'}
-                        <ArrowRight size={20} />
+                    <button type="submit" disabled={loading} className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary-dark transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                        {loading ? <Loader className="animate-spin" size={20} /> : (view === 'login' ? 'Login Securely' : 'Create Account')}
+                        {view === 'login' && !loading && <ArrowRight size={20} />}
                     </button>
                     
                     <div className="text-center mt-6">
                         <p className="text-sm text-gray-500">
                             {view === 'login' ? "New to Pick Your Pickle? " : "Already have an account? "}
-                            <button type="button" onClick={() => setView(view === 'login' ? 'signup' : 'login')} className="text-primary font-bold hover:underline">
+                            <button type="button" onClick={() => { setView(view === 'login' ? 'signup' : 'login'); setMessage(null); }} className="text-primary font-bold hover:underline">
                                 {view === 'login' ? "Sign Up" : "Log In"}
                             </button>
                         </p>

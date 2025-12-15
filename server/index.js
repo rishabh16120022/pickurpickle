@@ -38,30 +38,6 @@ connectDB();
 // 1. Auth Routes
 app.use('/api/auth', authRoutes);
 
-// Simple Login Route
-app.post('/api/login', async (req, res) => {
-  const { email, role } = req.body;
-  
-  if (!email) return res.status(400).json({ message: "Email is required" });
-
-  try {
-      let user = await User.findOne({ email });
-      if (!user) {
-        user = await User.create({ 
-            name: email.split('@')[0], 
-            email, 
-            role: role || 'customer', 
-            password: 'hashed_dummy_password' 
-        });
-      }
-      res.json({ id: user._id, name: user.name, email: user.email, role: user.role });
-  } catch (error) {
-      console.error("Login Error:", error);
-      res.status(500).json({ message: "Server error during login" });
-  }
-});
-
-
 // 2. Store APIs
 // Flexible schemas to handle the dynamic nature of the prototype
 const Schema = mongoose.Schema;
@@ -143,6 +119,6 @@ app.post('/api/config', async (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

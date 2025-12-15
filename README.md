@@ -65,6 +65,7 @@ cd pick-your-pickle
     ```env
     MONGO_URI="your_mongodb_atlas_connection_string_here"
     API_KEY="your_google_gemini_api_key_here"
+    VITE_API_KEY="your_google_gemini_api_key_here"  <-- CRITICAL FOR PICKLE BOT
     EMAIL_USER="your_email@gmail.com"
     EMAIL_PASS="your_app_password"
     PORT=5000

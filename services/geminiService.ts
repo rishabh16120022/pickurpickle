@@ -1,8 +1,13 @@
 import { GoogleGenAI, Chat } from "@google/genai";
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY || ''; // In a real app, ensure this is set
-  // Ideally, do not hardcode, but for this demo environment we assume env is injected or user provides it.
+  // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+  const apiKey = process.env.API_KEY || ''; 
+  
+  if (!apiKey) {
+    console.error("Gemini API Key is missing. Please set API_KEY in your environment.");
+  }
+
   return new GoogleGenAI({ apiKey });
 };
 

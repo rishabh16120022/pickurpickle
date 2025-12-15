@@ -14,7 +14,8 @@ interface StoreContextType {
   banners: Banner[];
   config: SiteConfig;
   notification: { message: string; type: 'success' | 'error' } | null;
-  login: (email: string, role: 'admin' | 'customer') => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string, role: 'admin' | 'customer') => Promise<boolean>;
   logout: () => void;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
@@ -170,22 +171,51 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   const refreshProducts = () => fetchSafe('/api/products', []).then(data => { if(data.length) setProducts(data); });
 
   // --- User Actions ---
-  const login = async (email: string, role: 'admin' | 'customer') => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-        const res = await fetch('/api/login', {
+        const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email, role })
+            body: JSON.stringify({ email, password })
         });
+        
+        const data = await res.json();
+        
         if (res.ok) {
-            const userData = await res.json();
-            setUser(userData);
-            showNotification(`Welcome back, ${userData.name}!`);
+            setUser(data);
+            showNotification(`Welcome back, ${data.name}!`);
+            return true;
         } else {
-            showNotification("Login failed", 'error');
+            showNotification(data.message || "Login failed", 'error');
+            return false;
         }
     } catch (e) {
         showNotification("Login connection failed", 'error');
+        return false;
+    }
+  };
+
+  const signup = async (name: string, email: string, password: string, role: 'admin' | 'customer'): Promise<boolean> => {
+    try {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, email, password, role })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+            setUser(data);
+            showNotification(`Account created! Welcome, ${data.name}.`);
+            return true;
+        } else {
+            showNotification(data.message || "Signup failed", 'error');
+            return false;
+        }
+    } catch (e) {
+        showNotification("Signup connection failed", 'error');
+        return false;
     }
   };
 
@@ -505,7 +535,7 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   return (
     <StoreContext.Provider value={{
       user, products, categories, coupons, cart, orders, reviews, banners, config, notification,
-      login, logout, addToCart, removeFromCart, updateCartQuantity, clearCart, placeOrder,
+      login, signup, logout, addToCart, removeFromCart, updateCartQuantity, clearCart, placeOrder,
       cancelOrder, requestReturn, processReturnAction,
       addReview, deleteReview, adminAddReview, getProductReviews, getAverageRating,
       addProduct, updateProduct, deleteProduct, 
