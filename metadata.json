@@ -1,0 +1,7 @@
+{
+  "name": "Pick Your Pickle",
+  "description": "A premium e-commerce platform for authentic Indian pickles, snacks, and groceries with a rich cultural aesthetic, admin management, and AI-powered recipe suggestions.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
