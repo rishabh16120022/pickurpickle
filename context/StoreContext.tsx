@@ -1,6 +1,5 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Product, CartItem, User, Order, SiteConfig, CategoryItem, Coupon, Review } from '../types';
+import { Product, CartItem, User, Order, SiteConfig, CategoryItem, Coupon, Review, Banner } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_CONFIG, INITIAL_CATEGORIES, INITIAL_COUPONS, INITIAL_REVIEWS } from '../constants';
 import { createShiprocketOrder } from '../services/shiprocketService';
 
@@ -12,6 +11,7 @@ interface StoreContextType {
   cart: CartItem[];
   orders: Order[];
   reviews: Review[];
+  banners: Banner[];
   config: SiteConfig;
   notification: { message: string; type: 'success' | 'error' } | null;
   login: (email: string, role: 'admin' | 'customer') => void;
@@ -39,12 +39,60 @@ interface StoreContextType {
   deleteCategory: (categoryId: string) => void;
   addCoupon: (coupon: Coupon) => void;
   deleteCoupon: (couponId: string) => void;
+  addBanner: (banner: Banner) => void;
+  deleteBanner: (bannerId: string) => void;
+  updateBanner: (banner: Banner) => void;
   updateConfig: (config: SiteConfig) => void;
   updateOrderStatus: (orderId: string, status: Order['status'], trackingId?: string) => void;
   generateLabel: (orderId: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
+
+// Helper to safely fetch JSON
+const fetchSafe = async (url: string, defaultValue: any) => {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            console.warn(`Backend endpoint ${url} not available (${res.status}). Using fallback.`);
+            return defaultValue;
+        }
+        return await res.json();
+    } catch (error) {
+        console.error(`Failed to fetch ${url}:`, error);
+        return defaultValue;
+    }
+};
+
+const INITIAL_BANNERS: Banner[] = [
+    {
+        id: '1',
+        imageUrl: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&q=80&w=2000",
+        title: "Bring the Spice Home.",
+        subtitle: "Authentic Guntur pickles handcrafted with love.",
+        link: "/shop",
+        buttonText: "Shop Now",
+        active: true
+    },
+    {
+        id: '2',
+        imageUrl: "https://images.unsplash.com/photo-1589135233689-d538605df0c7?auto=format&fit=crop&q=80&w=2000",
+        title: "Mango Mania!",
+        subtitle: "The season's best raw mango pickle is back in stock.",
+        link: "/shop?cat=pickles&search=mango",
+        buttonText: "Grab Yours",
+        active: true
+    },
+    {
+        id: '3',
+        imageUrl: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&q=80&w=2000",
+        title: "Crunchy Snacks",
+        subtitle: "Perfect tea-time companions.",
+        link: "/shop?cat=snacks",
+        buttonText: "Explore Snacks",
+        active: true
+    }
+];
 
 export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   // --- State Initialization ---
@@ -74,39 +122,39 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   });
 
   // Data from API
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [categories, setCategories] = useState<CategoryItem[]>(INITIAL_CATEGORIES);
+  const [coupons, setCoupons] = useState<Coupon[]>(INITIAL_COUPONS);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<Review[]>(INITIAL_REVIEWS);
   const [config, setConfig] = useState<SiteConfig>(INITIAL_CONFIG);
+  const [banners, setBanners] = useState<Banner[]>(INITIAL_BANNERS);
 
   // --- API Fetching ---
   const fetchData = async () => {
      try {
-         const [prodRes, catRes, revRes, ordRes, coupRes, confRes] = await Promise.all([
-             fetch('/api/products').then(r => r.json()),
-             fetch('/api/categories').then(r => r.json()),
-             fetch('/api/reviews').then(r => r.json()),
-             fetch('/api/orders').then(r => r.json()),
-             fetch('/api/coupons').then(r => r.json()),
-             fetch('/api/config').then(r => r.json())
+         // We use Promise.all to fetch everything, but wrapped in fetchSafe so one failure doesn't kill the app
+         const [prodRes, catRes, revRes, ordRes, coupRes, confRes, bannerRes] = await Promise.all([
+             fetchSafe('/api/products', []),
+             fetchSafe('/api/categories', []),
+             fetchSafe('/api/reviews', []),
+             fetchSafe('/api/orders', []),
+             fetchSafe('/api/coupons', []),
+             fetchSafe('/api/config', {}),
+             fetchSafe('/api/banners', [])
          ]);
          
-         setProducts(prodRes.length ? prodRes : INITIAL_PRODUCTS);
-         setCategories(catRes.length ? catRes : INITIAL_CATEGORIES);
-         setReviews(revRes.length ? revRes : INITIAL_REVIEWS);
-         setOrders(ordRes);
-         setCoupons(coupRes.length ? coupRes : INITIAL_COUPONS);
-         if(confRes && confRes.id) setConfig(confRes);
+         if (prodRes && prodRes.length > 0) setProducts(prodRes);
+         if (catRes && catRes.length > 0) setCategories(catRes);
+         if (revRes && revRes.length > 0) setReviews(revRes);
+         if (ordRes && ordRes.length > 0) setOrders(ordRes);
+         if (coupRes && coupRes.length > 0) setCoupons(coupRes);
+         if (bannerRes && bannerRes.length > 0) setBanners(bannerRes);
+         if (confRes && confRes._id) setConfig(confRes); // Check for DB ID to ensure it's not empty
 
      } catch (error) {
-         console.error("Failed to fetch data from backend", error);
-         // Fallback to constants if backend fails
-         setProducts(INITIAL_PRODUCTS);
-         setCategories(INITIAL_CATEGORIES);
-         setReviews(INITIAL_REVIEWS);
-         setCoupons(INITIAL_COUPONS);
+         console.error("Critical error during data fetch:", error);
+         // Fallbacks are already set in initial state
      }
   };
 
@@ -119,8 +167,7 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   useEffect(() => localStorage.setItem('pyp_cart', JSON.stringify(cart)), [cart]);
 
   // --- Helper to refresh data ---
-  const refreshOrders = () => fetch('/api/orders').then(r => r.json()).then(setOrders);
-  const refreshProducts = () => fetch('/api/products').then(r => r.json()).then(setProducts);
+  const refreshProducts = () => fetchSafe('/api/products', []).then(data => { if(data.length) setProducts(data); });
 
   // --- User Actions ---
   const login = async (email: string, role: 'admin' | 'customer') => {
@@ -130,11 +177,15 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ email, role })
         });
-        const userData = await res.json();
-        setUser(userData);
-        showNotification(`Welcome back, ${userData.name}!`);
+        if (res.ok) {
+            const userData = await res.json();
+            setUser(userData);
+            showNotification(`Welcome back, ${userData.name}!`);
+        } else {
+            showNotification("Login failed", 'error');
+        }
     } catch (e) {
-        showNotification("Login failed", 'error');
+        showNotification("Login connection failed", 'error');
     }
   };
 
@@ -384,6 +435,32 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
     showNotification("Coupon deleted");
   };
 
+  const addBanner = async (banner: Banner) => {
+    setBanners(prev => [...prev, banner]);
+    await fetch('/api/banners', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(banner)
+    });
+    showNotification("Banner added successfully");
+  };
+
+  const deleteBanner = async (bannerId: string) => {
+    setBanners(prev => prev.filter(b => b.id !== bannerId));
+    await fetch(`/api/banners/${bannerId}`, { method: 'DELETE' });
+    showNotification("Banner deleted");
+  };
+
+  const updateBanner = async (banner: Banner) => {
+    setBanners(prev => prev.map(b => b.id === banner.id ? banner : b));
+    await fetch(`/api/banners/${banner.id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(banner)
+    });
+    showNotification("Banner updated");
+  };
+
   const updateConfig = async (newConfig: SiteConfig) => {
     setConfig(newConfig);
     await fetch('/api/config', {
@@ -427,12 +504,13 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
 
   return (
     <StoreContext.Provider value={{
-      user, products, categories, coupons, cart, orders, reviews, config, notification,
+      user, products, categories, coupons, cart, orders, reviews, banners, config, notification,
       login, logout, addToCart, removeFromCart, updateCartQuantity, clearCart, placeOrder,
       cancelOrder, requestReturn, processReturnAction,
       addReview, deleteReview, adminAddReview, getProductReviews, getAverageRating,
       addProduct, updateProduct, deleteProduct, 
       addCategory, deleteCategory, addCoupon, deleteCoupon,
+      addBanner, deleteBanner, updateBanner,
       updateConfig, updateOrderStatus, generateLabel
     }}>
       {children}

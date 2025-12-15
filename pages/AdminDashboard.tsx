@@ -1,28 +1,31 @@
 
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Product, SiteConfig, CategoryItem, Coupon, Review } from '../types';
+import { Product, SiteConfig, CategoryItem, Coupon, Review, Banner } from '../types';
 import { 
   LayoutDashboard, ShoppingBag, Package, Settings, Tags, Percent, MessageSquare,
-  Plus, Edit, Trash2, Save, X, Truck, FileText, ExternalLink, RefreshCcw, Check, XCircle, Star, AlertTriangle
+  Plus, Edit, Trash2, Save, X, Truck, FileText, ExternalLink, RefreshCcw, Check, XCircle, Star, AlertTriangle, Image as ImageIcon, Eye, EyeOff
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const AdminDashboard = () => {
   const { 
-    products, categories, coupons, orders, reviews, config, 
+    products, categories, coupons, orders, reviews, banners, config, 
     addProduct, updateProduct, deleteProduct, 
     addCategory, deleteCategory, addCoupon, deleteCoupon,
+    addBanner, deleteBanner, updateBanner,
     updateConfig, updateOrderStatus, generateLabel, processReturnAction,
     deleteReview, adminAddReview
   } = useStore();
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'categories' | 'coupons' | 'orders' | 'reviews' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'categories' | 'coupons' | 'orders' | 'reviews' | 'settings' | 'banners'>('overview');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [isAddingCoupon, setIsAddingCoupon] = useState(false);
   const [isAddingReview, setIsAddingReview] = useState(false);
+  const [isAddingBanner, setIsAddingBanner] = useState(false);
+  const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
 
   // Stats for Overview
   const totalRevenue = orders.reduce((acc, order) => acc + (order.finalAmount || order.totalAmount), 0);
@@ -109,9 +112,6 @@ const AdminDashboard = () => {
       );
   };
   
-  // ... (Other forms remain same)
-
-  // Need to render the existing forms inside the component
   const CategoryForm = ({ onClose }: { onClose: () => void }) => {
       const [formData, setFormData] = useState<Partial<CategoryItem>>({});
 
@@ -285,6 +285,61 @@ const AdminDashboard = () => {
     );
   };
 
+  const BannerForm = ({ initialData, onClose }: { initialData?: Banner, onClose: () => void }) => {
+    const [formData, setFormData] = useState<Partial<Banner>>(initialData || {
+        active: true,
+        buttonText: "Shop Collection",
+        link: "/shop"
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const banner: Banner = {
+            id: initialData?.id || Date.now().toString(),
+            imageUrl: formData.imageUrl!,
+            title: formData.title!,
+            subtitle: formData.subtitle!,
+            link: formData.link!,
+            buttonText: formData.buttonText!,
+            active: formData.active!
+        };
+
+        if(initialData) updateBanner(banner);
+        else addBanner(banner);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+             <div className="bg-white p-6 rounded-lg w-full max-w-lg">
+                <h3 className="text-xl font-bold mb-4">{initialData ? 'Edit Banner' : 'Add New Banner'}</h3>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input type="text" placeholder="Title" required value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full border p-2 rounded" />
+                    <input type="text" placeholder="Subtitle" required value={formData.subtitle || ''} onChange={e => setFormData({...formData, subtitle: e.target.value})} className="w-full border p-2 rounded" />
+                    <input type="url" placeholder="Image URL (High Quality)" required value={formData.imageUrl || ''} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full border p-2 rounded" />
+                    
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Redirect Link</label>
+                        <input type="text" placeholder="e.g. /shop?cat=pickles" required value={formData.link || ''} onChange={e => setFormData({...formData, link: e.target.value})} className="w-full border p-2 rounded" />
+                        <p className="text-xs text-gray-500 mt-1">Tip: Use '/shop?cat=slug' or '/product/id'</p>
+                    </div>
+
+                    <input type="text" placeholder="Button Text" required value={formData.buttonText || ''} onChange={e => setFormData({...formData, buttonText: e.target.value})} className="w-full border p-2 rounded" />
+
+                    <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={formData.active} onChange={e => setFormData({...formData, active: e.target.checked})} /> Active
+                    </label>
+
+                    <div className="flex justify-end gap-2 mt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Banner</button>
+                    </div>
+                </form>
+             </div>
+        </div>
+    );
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
         {/* Sidebar */}
@@ -301,6 +356,9 @@ const AdminDashboard = () => {
                 </button>
                 <button onClick={() => setActiveTab('categories')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'categories' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}>
                     <Tags size={20} /> Categories
+                </button>
+                <button onClick={() => setActiveTab('banners')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'banners' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                    <ImageIcon size={20} /> Banners
                 </button>
                 <button onClick={() => setActiveTab('coupons')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === 'coupons' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}>
                     <Percent size={20} /> Coupons
@@ -321,7 +379,6 @@ const AdminDashboard = () => {
         <div className="flex-1 p-8 overflow-y-auto h-screen">
             {activeTab === 'overview' && (
                 <div className="space-y-6">
-                    {/* ... overview content ... */}
                      <h1 className="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -419,7 +476,6 @@ const AdminDashboard = () => {
                 </div>
             )}
 
-            {/* Render other tabs as they were, just need to include the component functions above */}
             {activeTab === 'categories' && (
                  <div>
                     <div className="flex justify-between items-center mb-6">
@@ -498,6 +554,60 @@ const AdminDashboard = () => {
                 </div>
             )}
             
+            {activeTab === 'banners' && (
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h1 className="text-2xl font-bold text-gray-800">Banner Slider Management</h1>
+                        <button onClick={() => setIsAddingBanner(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
+                            <Plus size={20} /> Add Slide
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {banners.map(banner => (
+                            <div key={banner.id} className={`group relative bg-white rounded-xl overflow-hidden border ${banner.active ? 'border-gray-200' : 'border-red-200 bg-red-50'}`}>
+                                <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                                    <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 flex items-end p-6">
+                                        <div className="text-white">
+                                            <h3 className="text-xl font-bold">{banner.title}</h3>
+                                            <p className="text-sm opacity-90">{banner.subtitle}</p>
+                                        </div>
+                                    </div>
+                                    <div className="absolute top-2 right-2 flex gap-2">
+                                        <button onClick={() => setEditingBanner(banner)} className="p-2 bg-white/20 hover:bg-white text-white hover:text-blue-600 rounded-full backdrop-blur-sm transition">
+                                            <Edit size={16} />
+                                        </button>
+                                        <button onClick={() => deleteBanner(banner.id)} className="p-2 bg-white/20 hover:bg-white text-white hover:text-red-600 rounded-full backdrop-blur-sm transition">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="p-4 flex justify-between items-center text-sm text-gray-600">
+                                    <div className="flex items-center gap-2">
+                                        {banner.active ? <Eye size={16} className="text-green-600" /> : <EyeOff size={16} className="text-gray-400" />}
+                                        <span>{banner.active ? 'Visible' : 'Hidden'}</span>
+                                    </div>
+                                    <div className="font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate max-w-[150px]">
+                                        Link: {banner.link}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {banners.length === 0 && (
+                        <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                            <p className="text-gray-500">No banners active. The homepage will be boring!</p>
+                        </div>
+                    )}
+                    {(isAddingBanner || editingBanner) && (
+                        <BannerForm 
+                            initialData={editingBanner || undefined} 
+                            onClose={() => { setIsAddingBanner(false); setEditingBanner(null); }} 
+                        />
+                    )}
+                </div>
+            )}
+
             {activeTab === 'reviews' && (
                 <div>
                     <div className="flex justify-between items-center mb-6">
@@ -665,26 +775,7 @@ const AdminDashboard = () => {
             {activeTab === 'settings' && (
                 <div className="max-w-2xl">
                      <h1 className="text-2xl font-bold text-gray-800 mb-6">Store Settings</h1>
-                     {/* ... settings content ... */}
-                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
-                        <h3 className="font-bold text-lg mb-4 text-blue-600">Theme & Banner</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Hero Banner Image URL</label>
-                                <input 
-                                    type="text" 
-                                    value={config.heroBannerUrl} 
-                                    onChange={e => updateConfig({...config, heroBannerUrl: e.target.value})}
-                                    className="w-full border p-2 rounded" 
-                                    placeholder="https://example.com/banner.jpg"
-                                />
-                                <div className="mt-2 h-20 w-full bg-gray-100 rounded overflow-hidden">
-                                    <img src={config.heroBannerUrl} alt="Preview" className="w-full h-full object-cover opacity-50" />
-                                </div>
-                            </div>
-                        </div>
-                     </div>
-
+                     
                      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
                         <h3 className="font-bold text-lg mb-4 text-blue-600">Floating Marquee Text</h3>
                         <div className="space-y-4">

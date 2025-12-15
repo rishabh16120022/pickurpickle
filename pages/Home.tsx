@@ -1,61 +1,112 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Star, ArrowRight, Sparkles, Award, ShieldCheck, Truck } from 'lucide-react';
+import { Star, ArrowRight, Sparkles, Award, ShieldCheck, Truck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 const Home = () => {
-  const { products, categories, addToCart, config, getAverageRating } = useStore();
+  const { products, categories, addToCart, config, banners, getAverageRating } = useStore();
   const navigate = useNavigate();
   const featuredProducts = [...products].filter(p => p.isFeatured).slice(0, 4);
+
+  // Filter only active banners
+  const activeBanners = banners.filter(b => b.active);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Auto-slide effect
+  useEffect(() => {
+    if (activeBanners.length <= 1) return;
+    const interval = setInterval(() => {
+        setCurrentSlide(prev => (prev + 1) % activeBanners.length);
+    }, 5000); // 5 seconds per slide
+    return () => clearInterval(interval);
+  }, [activeBanners.length]);
+
+  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % activeBanners.length);
+  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + activeBanners.length) % activeBanners.length);
 
   return (
     <div className="overflow-x-hidden">
       
-      {/* 1. Dynamic Hero Section */}
-      <section className="relative h-[80vh] md:h-[90vh] flex items-center overflow-hidden bg-bg">
-          {/* Background Image with Overlay */}
-          <div className="absolute inset-0 z-0">
-             <img 
-                src={config.heroBannerUrl} 
-                alt="Spices Background" 
-                className="w-full h-full object-cover animate-in fade-in duration-1000 scale-105"
-             />
-             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent"></div>
-          </div>
+      {/* 1. Dynamic Hero Slider */}
+      <section className="relative h-[80vh] md:h-[90vh] bg-bg overflow-hidden group">
+          
+          {activeBanners.length > 0 ? (
+            activeBanners.map((banner, index) => (
+              <div 
+                key={banner.id} 
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+              >
+                 {/* Background Image with Overlay */}
+                 <div className="absolute inset-0">
+                    <img 
+                        src={banner.imageUrl} 
+                        alt={banner.title} 
+                        className={`w-full h-full object-cover transition-transform duration-[10000ms] ${index === currentSlide ? 'scale-105' : 'scale-100'}`}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent"></div>
+                 </div>
+                 
+                 {/* Content */}
+                 <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex items-center">
+                    <div className="max-w-2xl text-white">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/30 bg-white/10 backdrop-blur-md mb-6 animate-in slide-in-from-bottom-4 fade-in duration-700">
+                            <Sparkles size={14} className="text-accent" />
+                            <span className="text-xs font-bold tracking-widest uppercase">Special Offer</span>
+                        </div>
+                        
+                        <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold leading-tight mb-6 animate-in slide-in-from-bottom-8 fade-in duration-1000 text-shadow-lg">
+                            {banner.title}
+                        </h1>
+                        
+                        <p className="text-lg md:text-xl text-gray-200 mb-10 font-light leading-relaxed max-w-lg animate-in slide-in-from-bottom-12 fade-in duration-1000 delay-100">
+                            {banner.subtitle}
+                        </p>
+                        
+                        <Link 
+                            to={banner.link} 
+                            className="inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary-light text-white rounded-full font-bold tracking-wide transition-all hover:scale-105 shadow-lg shadow-primary/30 animate-in slide-in-from-bottom-16 fade-in duration-1000 delay-200"
+                        >
+                            {banner.buttonText || "Shop Collection"} <ArrowRight size={18} />
+                        </Link>
+                    </div>
+                 </div>
+              </div>
+            ))
+          ) : (
+             // Fallback if no active banners
+             <div className="h-full flex items-center justify-center bg-gray-900 text-white">
+                 <p>No banners configured.</p>
+             </div>
+          )}
+
+          {/* Navigation Arrows */}
+          {activeBanners.length > 1 && (
+              <>
+                <button onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition opacity-0 group-hover:opacity-100">
+                    <ChevronLeft size={24} />
+                </button>
+                <button onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition opacity-0 group-hover:opacity-100">
+                    <ChevronRight size={24} />
+                </button>
+                
+                {/* Dots */}
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+                    {activeBanners.map((_, i) => (
+                        <button 
+                            key={i} 
+                            onClick={() => setCurrentSlide(i)}
+                            className={`w-3 h-3 rounded-full transition-all ${i === currentSlide ? 'bg-accent w-8' : 'bg-white/50 hover:bg-white'}`}
+                        />
+                    ))}
+                </div>
+              </>
+          )}
 
           {/* Floating Decorative Elements */}
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
               <div className="absolute top-20 right-[10%] w-32 h-32 bg-primary/20 rounded-full blur-3xl animate-float"></div>
               <div className="absolute bottom-20 left-[20%] w-48 h-48 bg-accent/20 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
-          </div>
-
-          {/* Hero Content */}
-          <div className="relative z-10 max-w-7xl mx-auto px-6 w-full">
-              <div className="max-w-2xl text-white">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/30 bg-white/10 backdrop-blur-md mb-6 animate-in slide-in-from-bottom-4 fade-in duration-700">
-                      <Sparkles size={14} className="text-accent" />
-                      <span className="text-xs font-bold tracking-widest uppercase">Taste of Tradition</span>
-                  </div>
-                  
-                  <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold leading-tight mb-6 animate-in slide-in-from-bottom-8 fade-in duration-1000 text-shadow-lg">
-                      Bring the <br/>
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-primary">Spice Home.</span>
-                  </h1>
-                  
-                  <p className="text-lg md:text-xl text-gray-200 mb-10 font-light leading-relaxed max-w-lg animate-in slide-in-from-bottom-12 fade-in duration-1000 delay-100">
-                      Authentic Guntur pickles, handcrafted with sun-dried spices and generations of love. No preservatives, just pure nostalgia.
-                  </p>
-                  
-                  <div className="flex flex-col sm:flex-row gap-4 animate-in slide-in-from-bottom-16 fade-in duration-1000 delay-200">
-                      <Link to="/shop" className="px-8 py-4 bg-primary hover:bg-primary-light text-white rounded-full font-bold tracking-wide transition-all hover:scale-105 shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
-                          Shop Now <ArrowRight size={18} />
-                      </Link>
-                      <Link to="/shop?cat=pickles" className="px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-full font-bold tracking-wide transition-all flex items-center justify-center">
-                          Explore Collections
-                      </Link>
-                  </div>
-              </div>
           </div>
       </section>
 

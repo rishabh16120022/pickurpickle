@@ -17,6 +17,16 @@ export interface Coupon {
   isActive: boolean;
 }
 
+export interface Banner {
+  id: string;
+  imageUrl: string;
+  title: string;
+  subtitle: string;
+  link: string; // Where to redirect: '/shop', '/shop?cat=pickles', etc.
+  buttonText?: string;
+  active: boolean;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -84,7 +94,7 @@ export interface SiteConfig {
   marqueeText: string; // New: Customizable scrolling text
   marqueeActive: boolean;
   marqueeSpeed: number; // Seconds for animation
-  heroBannerUrl: string; // New: Customizable Home Banner
+  heroBannerUrl: string; // Deprecated in favor of Banners array, kept for fallback
   paymentMethods: {
     upi: boolean;
     card: boolean;
