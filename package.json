@@ -11,7 +11,7 @@
     "dev:server": "nodemon server/index.js"
   },
   "dependencies": {
-    "openai": "^4.28.0",
+    "@google/genai": "^0.1.2",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

@@ -13,8 +13,11 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       emptyOutDir: true
     },
-    // Fix for 'process is not defined' error in browser
+    // Define global constants replacement
     define: {
+      // Maps process.env.API_KEY to the loaded environment variable (API_KEY or VITE_GOOGLE_API_KEY)
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_GOOGLE_API_KEY || ''),
+      // Prevent 'process is not defined' error in browser for other libs
       'process.env': {} 
     },
     server: {
