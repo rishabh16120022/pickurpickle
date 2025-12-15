@@ -15,7 +15,8 @@ interface StoreContextType {
   config: SiteConfig;
   notification: { message: string; type: 'success' | 'error' } | null;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (name: string, email: string, password: string, role: 'admin' | 'customer') => Promise<boolean>;
+  initiateSignup: (name: string, email: string) => Promise<boolean>;
+  completeSignup: (name: string, email: string, otp: string, password: string) => Promise<boolean>;
   logout: () => void;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
@@ -96,8 +97,6 @@ const INITIAL_BANNERS: Banner[] = [
 ];
 
 export const StoreProvider = ({ children }: { children?: ReactNode }) => {
-  // --- State Initialization ---
-  
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
@@ -134,7 +133,6 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   // --- API Fetching ---
   const fetchData = async () => {
      try {
-         // We use Promise.all to fetch everything, but wrapped in fetchSafe so one failure doesn't kill the app
          const [prodRes, catRes, revRes, ordRes, coupRes, confRes, bannerRes] = await Promise.all([
              fetchSafe('/api/products', []),
              fetchSafe('/api/categories', []),
@@ -151,11 +149,10 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
          if (ordRes && ordRes.length > 0) setOrders(ordRes);
          if (coupRes && coupRes.length > 0) setCoupons(coupRes);
          if (bannerRes && bannerRes.length > 0) setBanners(bannerRes);
-         if (confRes && confRes._id) setConfig(confRes); // Check for DB ID to ensure it's not empty
+         if (confRes && confRes._id) setConfig(confRes); 
 
      } catch (error) {
          console.error("Critical error during data fetch:", error);
-         // Fallbacks are already set in initial state
      }
   };
 
@@ -163,11 +160,9 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
      fetchData();
   }, []);
 
-  // --- Effects for Local Persistence (Only User & Cart) ---
   useEffect(() => localStorage.setItem('pyp_user', JSON.stringify(user)), [user]);
   useEffect(() => localStorage.setItem('pyp_cart', JSON.stringify(cart)), [cart]);
 
-  // --- Helper to refresh data ---
   const refreshProducts = () => fetchSafe('/api/products', []).then(data => { if(data.length) setProducts(data); });
 
   // --- User Actions ---
@@ -182,7 +177,8 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
         const data = await res.json();
         
         if (res.ok) {
-            setUser(data);
+            setUser(data); // data includes token
+            if(data.token) localStorage.setItem('token', data.token);
             showNotification(`Welcome back, ${data.name}!`);
             return true;
         } else {
@@ -195,39 +191,59 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
-  const signup = async (name: string, email: string, password: string, role: 'admin' | 'customer'): Promise<boolean> => {
+  const initiateSignup = async (name: string, email: string): Promise<boolean> => {
     try {
-        const res = await fetch('/api/auth/register', {
+        const res = await fetch('/api/auth/signup/initiate', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, email, password, role })
+            body: JSON.stringify({ name, email })
         });
-        
         const data = await res.json();
-        
         if (res.ok) {
-            setUser(data);
-            showNotification(`Account created! Welcome, ${data.name}.`);
+            showNotification(data.message || "OTP Sent!");
             return true;
         } else {
-            showNotification(data.message || "Signup failed", 'error');
+            showNotification(data.message, 'error');
             return false;
         }
     } catch (e) {
-        showNotification("Signup connection failed", 'error');
+        showNotification("Connection error", 'error');
         return false;
     }
+  };
+
+  const completeSignup = async (name: string, email: string, otp: string, password: string): Promise<boolean> => {
+      try {
+          const res = await fetch('/api/auth/signup/complete', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name, email, otp, password })
+          });
+          const data = await res.json();
+          if (res.ok) {
+              setUser(data);
+              if(data.token) localStorage.setItem('token', data.token);
+              showNotification("Account created successfully!");
+              return true;
+          } else {
+              showNotification(data.message, 'error');
+              return false;
+          }
+      } catch (e) {
+          showNotification("Connection error", 'error');
+          return false;
+      }
   };
 
   const logout = () => {
     setUser(null);
     setCart([]);
+    localStorage.removeItem('token');
     showNotification("Logged out successfully");
   };
 
   // --- Cart Actions ---
   const addToCart = (product: Product) => {
-    // Check if product has available stock
     if (product.stockQuantity <= 0) {
         showNotification("Sorry, this item is out of stock!", 'error');
         return;
@@ -257,7 +273,6 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   const updateCartQuantity = (productId: string, quantity: number) => {
     if (quantity < 1) return removeFromCart(productId);
     
-    // Check stock limit
     const product = products.find(p => p.id === productId);
     if (product && quantity > product.stockQuantity) {
         showNotification(`Only ${product.stockQuantity} items available!`, 'error');
@@ -274,7 +289,6 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
     const totalAmount = cart.reduce((sum, item) => sum + ((item.offerPrice || item.price) * item.quantity), 0);
     const finalAmount = Math.max(0, totalAmount - discount);
     
-    // Simulate Shiprocket API
     const shiprocketData = await createShiprocketOrder({});
 
     const newOrder: Order = {
@@ -297,7 +311,6 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
       courierName: shiprocketData.courier_name,
     };
 
-    // Send to Backend
     await fetch('/api/orders', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -306,8 +319,6 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
 
     setOrders(prev => [newOrder, ...prev]);
     clearCart();
-    
-    // IMPORTANT: Refresh products to update stock quantities on frontend
     await refreshProducts();
     
     showNotification("Order placed & shipment created!");
@@ -316,7 +327,6 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   // --- Order Management Actions ---
 
   const cancelOrder = async (orderId: string) => {
-      // Optimistic Update
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'cancelled' } : o));
       
       await fetch(`/api/orders/${orderId}`, {
@@ -535,7 +545,7 @@ export const StoreProvider = ({ children }: { children?: ReactNode }) => {
   return (
     <StoreContext.Provider value={{
       user, products, categories, coupons, cart, orders, reviews, banners, config, notification,
-      login, signup, logout, addToCart, removeFromCart, updateCartQuantity, clearCart, placeOrder,
+      login, initiateSignup, completeSignup, logout, addToCart, removeFromCart, updateCartQuantity, clearCart, placeOrder,
       cancelOrder, requestReturn, processReturnAction,
       addReview, deleteReview, adminAddReview, getProductReviews, getAverageRating,
       addProduct, updateProduct, deleteProduct, 

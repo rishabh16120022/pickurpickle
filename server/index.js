@@ -4,6 +4,7 @@ dotenv.config();
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import bcrypt from 'bcrypt';
 import authRoutes from './routes/authRoutes.js';
 import User from './models/User.js';
 
@@ -19,15 +20,48 @@ const connectDB = async () => {
   try {
     const connString = process.env.MONGO_URI || 'mongodb://localhost:27017/pick-your-pickle';
     
-    // Mask credentials for logging safety
     const maskedString = connString.replace(/:([^:@]+)@/, ':****@');
     console.log(`📡 Attempting to connect to: ${maskedString}`);
 
     await mongoose.connect(connString);
     
     console.log(`✅ MongoDB Connected: ${mongoose.connection.host}`);
+    
+    // Seed Admin User
+    await seedAdmin();
+
   } catch (err) {
     console.error('❌ MongoDB Connection Error:', err.message);
+  }
+};
+
+const seedAdmin = async () => {
+  try {
+    const adminEmail = "rishutripathi161@gmail.com";
+    const adminPass = "rishabh1126";
+    
+    const existingAdmin = await User.findOne({ email: adminEmail });
+    
+    if (!existingAdmin) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(adminPass, salt);
+      
+      await User.create({
+        name: "Super Admin",
+        email: adminEmail,
+        password: hashedPassword,
+        role: "admin"
+      });
+      console.log("🛡️  Default Admin Account Created");
+    } else {
+        // Optional: Ensure the role is always admin for this email
+        if(existingAdmin.role !== 'admin') {
+            existingAdmin.role = 'admin';
+            await existingAdmin.save();
+        }
+    }
+  } catch (error) {
+    console.error("Error seeding admin:", error);
   }
 };
 
@@ -39,10 +73,8 @@ connectDB();
 app.use('/api/auth', authRoutes);
 
 // 2. Store APIs
-// Flexible schemas to handle the dynamic nature of the prototype
 const Schema = mongoose.Schema;
 
-// Use global mongoose.models to prevent overwriting during hot reloads in some envs
 const Product = mongoose.models.Product || mongoose.model('Product', new Schema({}, { strict: false }));
 const Category = mongoose.models.Category || mongoose.model('Category', new Schema({}, { strict: false }));
 const Review = mongoose.models.Review || mongoose.model('Review', new Schema({}, { strict: false }));
@@ -112,13 +144,11 @@ app.get('/api/config', async (req, res) => {
 });
 app.post('/api/config', async (req, res) => {
     try {
-        // Upsert config (update if exists, insert if not)
         const config = await Config.findOneAndUpdate({}, req.body, { upsert: true, new: true });
         res.json(config);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

@@ -4,7 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { Mail, Lock, ArrowRight, Flower, Sparkles, Key, ChevronLeft, CheckCircle, AlertCircle, Loader, User } from 'lucide-react';
 
 const Auth = () => {
-  // View State: 'login' | 'signup' | 'forgot-email' | 'forgot-otp' | 'forgot-reset'
+  // View State: 'login' | 'signup-step1' | 'signup-step2' | 'forgot-email' | 'forgot-otp' | 'forgot-reset'
   const [view, setView] = useState('login');
   
   // Form Data
@@ -14,11 +14,10 @@ const Auth = () => {
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{text: string, type: 'success' | 'error'} | null>(null);
   
-  const { login, signup } = useStore();
+  const { login, initiateSignup, completeSignup } = useStore();
   const navigate = useNavigate();
 
   const showMessage = (text: string, type: 'success' | 'error') => {
@@ -28,10 +27,46 @@ const Auth = () => {
 
   // --- API HANDLERS ---
 
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email && password) {
+        setLoading(true);
+        const success = await login(email, password);
+        setLoading(false);
+        if (success) {
+            navigate('/');
+        }
+    }
+  };
+
+  const handleSignupStep1 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name && email) {
+        setLoading(true);
+        const success = await initiateSignup(name, email);
+        setLoading(false);
+        if (success) {
+            setView('signup-step2');
+        }
+    }
+  };
+
+  const handleSignupStep2 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name && email && otp && password) {
+        setLoading(true);
+        const success = await completeSignup(name, email, otp, password);
+        setLoading(false);
+        if (success) {
+            navigate('/');
+        }
+    }
+  };
+
+  // --- PASSWORD RESET HANDLERS ---
   const handleSendForgotOTP = async (e: React.FormEvent) => {
       e.preventDefault();
       setLoading(true);
-      setMessage(null);
       try {
           const res = await fetch('/api/auth/send-otp', {
               method: 'POST',
@@ -54,7 +89,6 @@ const Auth = () => {
   const handleVerifyOTP = async (e: React.FormEvent) => {
       e.preventDefault();
       setLoading(true);
-      setMessage(null);
       try {
           const res = await fetch('/api/auth/verify-otp', {
               method: 'POST',
@@ -77,7 +111,6 @@ const Auth = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
       e.preventDefault();
       setLoading(true);
-      setMessage(null);
       try {
           const res = await fetch('/api/auth/reset-password', {
               method: 'POST',
@@ -100,29 +133,6 @@ const Auth = () => {
       setLoading(false);
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email && password) {
-        setLoading(true);
-        const success = await login(email, password);
-        setLoading(false);
-        if (success) {
-            navigate('/');
-        }
-    }
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (name && email && password) {
-        setLoading(true);
-        const success = await signup(name, email, password, isAdmin ? 'admin' : 'customer');
-        setLoading(false);
-        if (success) {
-            navigate(isAdmin ? '/admin' : '/');
-        }
-    }
-  };
 
   // --- RENDER HELPERS ---
   
@@ -133,12 +143,12 @@ const Auth = () => {
 
         <div className="relative z-10">
             <h2 className="text-4xl font-serif font-bold mb-4">
-                {view === 'login' ? 'Welcome Back!' : view === 'signup' ? 'Join the Family' : 'Secure Reset'}
+                {view === 'login' ? 'Welcome Back!' : view.includes('signup') ? 'Join the Family' : 'Secure Reset'}
             </h2>
             <p className="text-lg text-orange-100 font-light leading-relaxed">
                 {view === 'login' 
                     ? 'Log in to access your saved recipes, track orders, and reorder your favorites.' 
-                    : view === 'signup' 
+                    : view.includes('signup')
                         ? 'Sign up today to get exclusive access to seasonal pickles and grandma\'s secret recipes.'
                         : 'Don\'t worry, we\'ll help you get back to your spicy cravings in no time.'}
             </p>
@@ -175,32 +185,15 @@ const Auth = () => {
                 </div>
             )}
 
-            {/* VIEW: LOGIN & SIGNUP */}
-            {(view === 'login' || view === 'signup') && (
-                <form className="space-y-8 max-w-sm mx-auto w-full" onSubmit={view === 'login' ? handleLogin : handleSignup}>
+            {/* VIEW: LOGIN */}
+            {view === 'login' && (
+                <form className="space-y-8 max-w-sm mx-auto w-full" onSubmit={handleLogin}>
                     <div className="text-center md:text-left mb-8">
-                        <h3 className="text-2xl font-bold text-gray-800 font-serif">
-                            {view === 'login' ? "Login to your account" : "Create an account"}
-                        </h3>
+                        <h3 className="text-2xl font-bold text-gray-800 font-serif">Login to your account</h3>
                         <p className="text-sm text-gray-500 mt-2">Enter your details below</p>
                     </div>
 
                     <div className="space-y-6">
-                        {view === 'signup' && (
-                            <div className="relative group">
-                                <User className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
-                                <input 
-                                    type="text" 
-                                    required 
-                                    value={name}
-                                    onChange={e => setName(e.target.value)}
-                                    className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
-                                    placeholder="Full Name"
-                                    id="name"
-                                />
-                                <label htmlFor="name" className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Full Name</label>
-                            </div>
-                        )}
                         <div className="relative group">
                             <Mail className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
                             <input 
@@ -210,9 +203,8 @@ const Auth = () => {
                                 onChange={e => setEmail(e.target.value)}
                                 className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
                                 placeholder="Email address"
-                                id="email"
                             />
-                            <label htmlFor="email" className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Email Address</label>
+                            <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Email Address</label>
                         </div>
                         <div className="relative group">
                             <Lock className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
@@ -223,42 +215,119 @@ const Auth = () => {
                                 onChange={e => setPassword(e.target.value)}
                                 className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
                                 placeholder="Password"
-                                id="password" 
                             />
-                            <label htmlFor="password" className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Password</label>
+                            <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Password</label>
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                        {view === 'signup' ? (
-                            <label className="flex items-center text-sm text-gray-600 select-none cursor-pointer hover:text-primary transition-colors">
-                                <input type="checkbox" checked={isAdmin} onChange={e => setIsAdmin(e.target.checked)} className="mr-2 accent-primary w-4 h-4" />
-                                Admin Account
-                            </label>
-                        ) : (
-                            <div className="w-1"></div> // Spacer
-                        )}
-                        
-                        {view === 'login' && (
-                            <button type="button" onClick={() => setView('forgot-email')} className="text-sm font-medium text-primary hover:underline">
-                                Forgot Password?
-                            </button>
-                        )}
+                    <div className="flex justify-end">
+                        <button type="button" onClick={() => setView('forgot-email')} className="text-sm font-medium text-primary hover:underline">
+                            Forgot Password?
+                        </button>
                     </div>
 
                     <button type="submit" disabled={loading} className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary-dark transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                        {loading ? <Loader className="animate-spin" size={20} /> : (view === 'login' ? 'Login Securely' : 'Create Account')}
-                        {view === 'login' && !loading && <ArrowRight size={20} />}
+                        {loading ? <Loader className="animate-spin" size={20} /> : 'Login Securely'}
+                        {!loading && <ArrowRight size={20} />}
                     </button>
                     
                     <div className="text-center mt-6">
                         <p className="text-sm text-gray-500">
-                            {view === 'login' ? "New to Pick Your Pickle? " : "Already have an account? "}
-                            <button type="button" onClick={() => { setView(view === 'login' ? 'signup' : 'login'); setMessage(null); }} className="text-primary font-bold hover:underline">
-                                {view === 'login' ? "Sign Up" : "Log In"}
-                            </button>
+                            New to Pick Your Pickle? <button type="button" onClick={() => setView('signup-step1')} className="text-primary font-bold hover:underline">Sign Up</button>
                         </p>
                     </div>
+                </form>
+            )}
+
+            {/* VIEW: SIGNUP STEP 1 (Name & Email) */}
+            {view === 'signup-step1' && (
+                <form className="space-y-8 max-w-sm mx-auto w-full" onSubmit={handleSignupStep1}>
+                     <div className="text-center md:text-left mb-8">
+                        <h3 className="text-2xl font-bold text-gray-800 font-serif">Create an account</h3>
+                        <p className="text-sm text-gray-500 mt-2">Step 1: Verification</p>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="relative group">
+                            <User className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
+                            <input 
+                                type="text" 
+                                required 
+                                value={name}
+                                onChange={e => setName(e.target.value)}
+                                className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
+                                placeholder="Full Name"
+                            />
+                            <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Full Name</label>
+                        </div>
+                        <div className="relative group">
+                            <Mail className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
+                            <input 
+                                type="email" 
+                                required 
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
+                                placeholder="Email address"
+                            />
+                            <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Email Address</label>
+                        </div>
+                    </div>
+
+                    <button type="submit" disabled={loading} className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-dark transition flex items-center justify-center gap-2">
+                        {loading ? <Loader className="animate-spin" size={20} /> : 'Send Verification OTP'}
+                    </button>
+
+                    <div className="text-center mt-6">
+                        <p className="text-sm text-gray-500">
+                            Already have an account? <button type="button" onClick={() => setView('login')} className="text-primary font-bold hover:underline">Log In</button>
+                        </p>
+                    </div>
+                </form>
+            )}
+
+            {/* VIEW: SIGNUP STEP 2 (OTP & Password) */}
+            {view === 'signup-step2' && (
+                <form className="space-y-8 max-w-sm mx-auto w-full" onSubmit={handleSignupStep2}>
+                    <button type="button" onClick={() => setView('signup-step1')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-4">
+                        <ChevronLeft size={16} /> Back
+                    </button>
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-800 font-serif">Verify & Secure</h3>
+                        <p className="text-sm text-gray-500 mt-2">Enter the OTP sent to {email}</p>
+                    </div>
+
+                    <div className="space-y-6">
+                         <div className="relative group">
+                            <Key className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
+                            <input 
+                                type="text" 
+                                required 
+                                maxLength={6}
+                                value={otp}
+                                onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                                className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent tracking-[0.5em] font-mono text-lg" 
+                                placeholder="000000"
+                            />
+                            <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">6-Digit OTP</label>
+                        </div>
+                        <div className="relative group">
+                            <Lock className="absolute left-0 top-3 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
+                            <input 
+                                type="password" 
+                                required 
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
+                                placeholder="Create Password"
+                            />
+                            <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Create Password</label>
+                        </div>
+                    </div>
+
+                    <button type="submit" disabled={loading} className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-dark transition flex items-center justify-center gap-2">
+                        {loading ? <Loader className="animate-spin" size={20} /> : 'Complete Registration'}
+                    </button>
                 </form>
             )}
 
@@ -282,9 +351,8 @@ const Auth = () => {
                             onChange={e => setEmail(e.target.value)}
                             className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
                             placeholder="Email address"
-                            id="reset-email"
                         />
-                        <label htmlFor="reset-email" className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Email Address</label>
+                        <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">Email Address</label>
                     </div>
 
                     <button type="submit" disabled={loading} className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-dark transition flex items-center justify-center gap-2">
@@ -314,9 +382,8 @@ const Auth = () => {
                             onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                             className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent tracking-[0.5em] font-mono text-lg" 
                             placeholder="000000"
-                            id="otp"
                         />
-                        <label htmlFor="otp" className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">6-Digit OTP</label>
+                        <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">6-Digit OTP</label>
                     </div>
 
                     <button type="submit" disabled={loading} className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-dark transition flex items-center justify-center gap-2">
@@ -342,9 +409,8 @@ const Auth = () => {
                             onChange={e => setNewPassword(e.target.value)}
                             className="w-full border-b border-gray-300 py-2 pl-8 text-gray-900 focus:outline-none focus:border-primary placeholder-transparent transition-all bg-transparent" 
                             placeholder="New Password"
-                            id="new-pass"
                         />
-                        <label htmlFor="new-pass" className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">New Password</label>
+                        <label className="absolute left-8 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-placeholder-shown:top-2 peer-focus:-top-3.5 peer-focus:text-primary peer-focus:text-sm">New Password</label>
                     </div>
 
                     <button type="submit" disabled={loading} className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-dark transition flex items-center justify-center gap-2">
