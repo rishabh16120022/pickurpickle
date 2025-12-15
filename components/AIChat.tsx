@@ -123,7 +123,7 @@ const AIChat = () => {
               </div>
               <div>
                 <h3 className="font-bold font-serif">PickleBot Support</h3>
-                <p className="text-[10px] text-orange-100">Powered by OpenAI</p>
+                <p className="text-[10px] text-orange-100">Powered by Gemini</p>
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="text-orange-100 hover:text-white transition p-2 hover:bg-white/10 rounded-full">

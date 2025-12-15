@@ -13,7 +13,7 @@ Follow these steps to host this application on a fresh Contabo VPS.
 1.  **Contabo VPS** (Cloud VPS S is sufficient).
 2.  **Domain Name** (optional, but recommended) pointing to your VPS IP Address.
 3.  **MongoDB Atlas Connection String** (ready to copy).
-4.  **OpenAI API Key** (for PickleBot).
+4.  **Google Gemini API Key** (for PickleBot).
 
 ---
 
@@ -64,7 +64,7 @@ cd pick-your-pickle
     Paste the following inside:
     ```env
     MONGO_URI="your_mongodb_atlas_connection_string_here"
-    VITE_OPENAI_API_KEY="sk-your_openai_api_key_here"
+    API_KEY="your_google_gemini_api_key_here"
     EMAIL_USER="your_email@gmail.com"
     EMAIL_PASS="your_app_password"
     JWT_SECRET="secure_random_string"
