@@ -1,12 +1,10 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { MessageCircle, X, Send, Bot, Sparkles } from 'lucide-react';
-import { createSupportChat } from '../services/geminiService';
-import { Chat, GenerateContentResponse } from "@google/genai";
+import { sendPickleBotMessage } from '../services/geminiService';
 
 interface Message {
-  role: 'user' | 'model';
+  role: 'user' | 'model' | 'system';
   text: string;
 }
 
@@ -26,7 +24,6 @@ const AIChat = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const chatSessionRef = useRef<Chat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -37,16 +34,10 @@ const AIChat = () => {
     scrollToBottom();
   }, [messages, isOpen, isLoading]);
 
-  useEffect(() => {
-    if (isOpen && !chatSessionRef.current) {
-        initializeChat();
-    }
-  }, [isOpen, user, orders, products]);
-
-  const initializeChat = () => {
+  const getContextData = () => {
     const userOrders = user ? orders.filter(o => o.userId === user.id) : [];
     
-    const contextData = `
+    return `
       CURRENT USER:
       Name: ${user ? user.name : 'Guest'}
       Email: ${user ? user.email : 'Not Logged In'}
@@ -74,8 +65,6 @@ const AIChat = () => {
       Payment Methods: ${Object.keys(config.paymentMethods).filter(k => config.paymentMethods[k as keyof typeof config.paymentMethods]).join(', ')}
       Announcement: ${config.announcementText}
     `;
-
-    chatSessionRef.current = createSupportChat(contextData);
   };
 
   const handleSend = async (textOverride?: string) => {
@@ -83,19 +72,19 @@ const AIChat = () => {
     if (!userMessage.trim()) return;
 
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    // Optimistically add user message
+    const newHistory: Message[] = [...messages, { role: 'user', text: userMessage }];
+    setMessages(newHistory);
     setIsLoading(true);
 
     try {
-      if (!chatSessionRef.current) initializeChat();
-      
-      const result: GenerateContentResponse = await chatSessionRef.current!.sendMessage({ message: userMessage });
-      const responseText = result.text || "I'm having a bit of trouble connecting to the kitchen right now. Please try again.";
+      const context = getContextData();
+      const responseText = await sendPickleBotMessage(messages, userMessage, context);
       
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     } catch (error) {
       console.error("Chat Error", error);
-      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I encountered an error. Please try again later." }]);
+      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I'm having trouble connecting to the server. Please try again later." }]);
     } finally {
       setIsLoading(false);
     }
@@ -134,7 +123,7 @@ const AIChat = () => {
               </div>
               <div>
                 <h3 className="font-bold font-serif">PickleBot Support</h3>
-                <p className="text-[10px] text-orange-100">Usually replies instantly</p>
+                <p className="text-[10px] text-orange-100">Powered by OpenAI</p>
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="text-orange-100 hover:text-white transition p-2 hover:bg-white/10 rounded-full">

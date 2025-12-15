@@ -11,9 +11,12 @@ import User from './models/User.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+// Middleware - Allow all origins for simplicity in this VPS setup
+app.use(cors({ origin: '*' }));
 app.use(express.json());
+
+// Health Check
+app.get('/', (req, res) => res.send('API is Running'));
 
 // Database Connection Logic
 const connectDB = async () => {
