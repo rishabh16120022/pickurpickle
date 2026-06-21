@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pick_your_pickle_secret_key_change_this';
-const SPECIFIC_ADMIN_EMAIL = "rishutripathi161@gmail.com";
+const SPECIFIC_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@pickyourpickle.com";
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 

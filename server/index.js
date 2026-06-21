@@ -40,8 +40,8 @@ const connectDB = async () => {
 
 const seedAdmin = async () => {
   try {
-    const adminEmail = "rishutripathi161@gmail.com";
-    const adminPass = "rishabh1126";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@pickyourpickle.com";
+    const adminPass = process.env.ADMIN_PASSWORD || "admin123";
     
     const existingAdmin = await User.findOne({ email: adminEmail });
     
